@@ -1,4 +1,4 @@
-last_post
+LAST POST
 =========
 
 LastPost is a module for the Drupal CMS,  
