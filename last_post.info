@@ -1,0 +1,4 @@
+name = Last Post 
+description = Récupérer le dernier post d'un reseau social, d'un blog, etc...
+core = 7.x
+package  = Services

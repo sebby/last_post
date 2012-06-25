@@ -1,0 +1,89 @@
+<?php
+
+
+
+/**
+ * Implements hook_menu()
+ */
+function last_post_menu() {
+  $items['admin/config/services/last_post'] = array(
+    'title' => 'Last Post',
+    'description' => 'Indiquer l\'url d\'un flux RSS',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('last_post_test_rss'),
+    'access arguments' => array('administer modules'),
+    'file' => 'admin.inc',
+  );
+   $items['admin/config/services/last_post/content/rss'] = array(
+    'title' => 'Voir le contenu d\'un flux RSS.',
+    'page callback' => 'last_post_rss_contenu',
+    'access arguments' => array('access content'),
+  );
+
+  return $items;
+}
+
+
+/**
+  * @link http://www.php.net/manual/fr/class.simplexmlelement.php
+  * @link http://php.net/manual/fr/simplexmlelement.xpath.php
+  */
+function last_post_rss_contenu(){
+  // dŽfinir l'url du flux
+  $url = variable_get('url_rss','');
+  // dŽfinir le cid
+  $cid = 'voir_rss' . $url;
+  // voir si la donnŽe n'est pas dans le cache de Drupal
+  // si c'est le cas, on lance une requte vers le site concernŽ
+  $cache = cache_get($cid);
+  if (is_object($cache) && !empty($cache->data)) {
+    $my_data = $cache->data;
+  }
+  else {
+    $result = drupal_http_request($url);
+    switch ($result->code) {
+      case 200:
+        $my_data = $result->data;
+        cache_set($cid,$my_data);
+        break;
+      default:
+        debug($result->code,'souci sur '.$url);
+        break;
+    }
+    debug($result->request,'request');
+    debug($result->protocol,' protocol');
+    debug($result->headers,' headers');
+    debug($result->code,'code');
+    }
+  // $my_data est une chaine de caractres contenant du code xml
+  // conversion la cha”ne de caractres en obj XML
+  $obj1 = simplexml_load_string($my_data);
+  // Cherher les children se trouvant dans le noeud parent channel
+  $ar1 = $obj1->xpath('channel/item');
+  $items =  array();
+  $nb = count($ar1);
+
+  $nb =  variable_get('num_items',5);
+  if($nb>count($ar1))$nb=count($ar1);
+
+  for ($i = 0; $i < $nb; $i++) {
+    $value       = $ar1[$i];
+    $title       = (string) $value->title;
+    $description = (string) $value->description;
+    $pubDate     = (string) $value->pubDate;
+    $pubDate     = format_date(strtotime($pubDate));
+    $link        = (string) $value->link;
+    $description = filter_xss($description);
+    $items[] = array(
+        'title' =>  $title,
+        'description' =>  $description,
+        'pubDate' =>  $pubDate,
+        'link' =>$link,
+        );
+  }
+   return theme('rss_items', array(
+        'items' => $items,
+        'title' => (string) reset($obj1->xpath('channel/title')),
+        )
+      );
+}
